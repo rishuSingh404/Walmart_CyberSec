@@ -59,6 +59,61 @@ The adapter exposes endpoints that map to the existing Walmart Secure backend se
    python app.py
    ```
 
+## Running the Application (Windows, PowerShell)
+
+To start both the Flask backend and the React frontend together, use the provided PowerShell script:
+
+1. Open PowerShell in the project root directory (`Walmart_CyberSec`).
+2. Run the following command:
+   
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File start_app.ps1
+   ```
+
+This will automatically launch both the Flask API (on port 5001) and the React frontend (usually on port 3000).
+
+- Make sure you have installed all Python dependencies (`pip install -r flask/requirements.txt`) and Node.js dependencies (`npm install`) before running the script.
+- For real data, ensure the backend service is running on port 8000 and the risk model API is running on port 5000.
+
+If you encounter issues, see the Troubleshooting section below.
+
+## How to Run the Full Stack Application
+
+### Quick Start (Recommended)
+
+1. **Open PowerShell in the project root directory** (where `start_app.ps1` is located).
+2. **Run the following command:**
+   
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File start_app.ps1
+   ```
+   This will automatically:
+   - Install Python and Node.js dependencies (if not already installed)
+   - Start the Flask backend (http://localhost:5001)
+   - Start the React frontend (http://localhost:3000)
+
+3. **Access the app:**
+   - Frontend: [http://localhost:3000](http://localhost:3000)
+   - Flask API: [http://localhost:5001](http://localhost:5001)
+
+> **Note:**
+> - Ensure you have Python 3.8+ and Node.js installed.
+> - The backend API (http://localhost:8000) and risk model API (http://localhost:5000) must also be running for full functionality (see Troubleshooting section).
+
+### Manual Start (Advanced)
+
+1. **Start Flask backend:**
+   ```powershell
+   cd flask
+   start_flask.bat
+   ```
+2. **Start React frontend:**
+   ```powershell
+   cd ..
+   npm install
+   npm start
+   ```
+
 ## API Documentation
 
 ### Authentication
@@ -528,4 +583,4 @@ If you encounter any issues with integration, please check:
 
 2. Check the Flask adapter logs for any errors
 
-3. Contact the backend developer for assistance 
+3. Contact the backend developer for assistance
