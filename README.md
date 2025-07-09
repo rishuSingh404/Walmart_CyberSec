@@ -112,7 +112,7 @@ The frontend will be available at http://localhost:3000
 ### 2. **AI-Based Risk Scoring Engine**
 - Returns numerical risk scores (0-100)
 - Provides risk labels: `low | medium | high`
-- Uses multiple ML models for comprehensive assessment
+- Uses multiple ML Models for Comprehensive Assessment
 
 ### 3. **Rule-Based Anomaly Detection**
 - Secondary detection layer for edge cases
