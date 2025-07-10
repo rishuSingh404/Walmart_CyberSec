@@ -1,5 +1,6 @@
-from flask import Flask, request, jsonify, g
-from flask_cors import CORS
+from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, make_response
+from flask_cors import cross_origin
 import logging
 import random
 import datetime
@@ -24,15 +25,37 @@ logger = logging.getLogger("walmart_secure_backend")
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
-    CORS(app)
+
+    @app.before_request
+    def handle_options_requests():
+        if request.method == 'OPTIONS':
+            response = make_response()
+            response.headers.add('Access-Control-Allow-Origin', '*')
+            response.headers.add('Access-Control-Allow-Headers', request.headers.get('Access-Control-Request-Headers'))
+            response.headers.add('Access-Control-Allow-Methods', request.headers.get('Access-Control-Request-Method'))
+            response.headers.add('Access-Control-Allow-Credentials', 'true')
+            return response
+
+
+
+
     init_db(app)
 
-    @app.route('/')
+
+
+
+
+
+
+
+    @app.route('/health', methods=['GET'])
     def health_check():
-        return jsonify({
+        response = jsonify({
             'status': 'healthy',
             'service': 'Walmart Secure Backend',
         })
+
+        return response
 
     # === Authentication Endpoints ===
     @app.route('/api/signup', methods=['POST'])
@@ -146,6 +169,62 @@ def create_app():
         })
 
 
+    @app.route('/otp_attempts', methods=['GET'])
+
+
+    @token_required
+    def get_otp_attempts(current_user):
+        attempts = AuditLog.query.filter(AuditLog.action.like('OTP_%')).order_by(AuditLog.timestamp.desc()).all()
+        return jsonify([
+            {
+                'id': attempt.id,
+                'user_id': attempt.user_id,
+                'session_id': attempt.details.get('session_id'),
+                'risk_score': attempt.details.get('risk_score'),
+                'otp_code': attempt.action,
+                'is_valid': attempt.details.get('is_valid'),
+                'ip_address': attempt.details.get('ip_address'),
+                'user_agent': attempt.details.get('user_agent'),
+                'created_at': attempt.timestamp.isoformat(),
+                'metadata': attempt.details.get('metadata')
+            } for attempt in attempts
+        ])
+
+    @app.route('/user_analytics', methods=['GET'])
+
+
+    @token_required
+    def get_user_analytics(current_user):
+        analytics_data = BehavioralData.query.order_by(BehavioralData.created_at.desc()).all()
+        return jsonify([
+            {
+                'id': data.id,
+                'user_id': data.user_id,
+                'session_id': data.fingerprint_data.get('session_id'),
+                'page_url': data.fingerprint_data.get('page_url'),
+                'user_agent': data.fingerprint_data.get('user_agent'),
+                'typing_wpm': data.fingerprint_data.get('typing_wpm'),
+                'typing_keystrokes': data.fingerprint_data.get('typing_keystrokes'),
+                'typing_corrections': data.fingerprint_data.get('typing_corrections'),
+                'mouse_clicks': data.fingerprint_data.get('mouse_clicks'),
+                'mouse_movements': data.fingerprint_data.get('mouse_movements'),
+                'mouse_velocity': data.fingerprint_data.get('mouse_velocity'),
+                'mouse_idle_time': data.fingerprint_data.get('mouse_idle_time'),
+                'scroll_depth': data.fingerprint_data.get('scroll_depth'),
+                'scroll_speed': data.fingerprint_data.get('scroll_speed'),
+                'scroll_events': data.fingerprint_data.get('scroll_events'),
+                'focus_changes': data.fingerprint_data.get('focus_changes'),
+                'focus_time': data.fingerprint_data.get('focus_time'),
+                'tab_switches': data.fingerprint_data.get('tab_switches'),
+                'session_duration': data.fingerprint_data.get('session_duration'),
+                'page_views': data.fingerprint_data.get('page_views'),
+                'interactions_count': data.fingerprint_data.get('interactions_count'),
+                'created_at': data.created_at.isoformat(),
+                'updated_at': data.created_at.isoformat(), # Assuming updated_at is same as created_at for simplicity
+                'metadata': data.fingerprint_data.get('metadata')
+            } for data in analytics_data
+        ])
+
     @app.route('/api/analytics/dashboard', methods=['GET'])
     @admin_required
     def get_dashboard_data(current_user):
@@ -188,4 +267,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(host='0.0.0.0', port=8000, debug=True) 
+    app.run(host='0.0.0.0', port=8000, debug=True)
