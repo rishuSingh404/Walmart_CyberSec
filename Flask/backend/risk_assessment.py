@@ -1,7 +1,13 @@
-from .ml_integration import risk_model_instance
-from .biometrics import analyze_user_behavior
-from .models import RiskAssessment, AuditLog
-from .database import db
+try:
+    from .ml_integration import risk_model_instance
+    from .biometrics import analyze_user_behavior
+    from .models import RiskAssessment, AuditLog
+    from .database import db
+except ImportError:
+    from ml_integration import risk_model_instance
+    from biometrics import analyze_user_behavior
+    from models import RiskAssessment, AuditLog
+    from database import db
 import random
 
 def assess_user_risk(user, request_data):

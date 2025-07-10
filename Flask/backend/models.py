@@ -1,4 +1,7 @@
-from .database import db
+try:
+    from .database import db
+except ImportError:
+    from database import db
 import datetime
 
 class User(db.Model):

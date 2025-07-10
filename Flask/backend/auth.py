@@ -2,10 +2,13 @@ import jwt
 import datetime
 from functools import wraps
 from flask import request, jsonify, current_app
-import jwt
 from passlib.context import CryptContext
-from .models import User
-from .database import db
+try:
+    from .models import User
+    from .database import db
+except ImportError:
+    from models import User
+    from database import db
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
@@ -28,9 +31,6 @@ def create_token(user_id, email, role):
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        if request.method == 'OPTIONS':
-            return f(*args, **kwargs)
-
         token = None
         if 'Authorization' in request.headers:
             try:
@@ -62,4 +62,4 @@ def admin_required(f):
         if current_user.role != 'admin':
             return jsonify({'message': 'Admin privileges required!'}), 403
         return f(current_user, *args, **kwargs)
-    return decorated
+    return decorated 
