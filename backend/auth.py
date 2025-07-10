@@ -3,8 +3,12 @@ import datetime
 from functools import wraps
 from flask import request, jsonify, current_app
 from passlib.context import CryptContext
-from .models import User
-from .database import db
+try:
+    from .models import User
+    from .database import db
+except ImportError:
+    from models import User
+    from database import db
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
