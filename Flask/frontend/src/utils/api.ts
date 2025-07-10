@@ -1,7 +1,7 @@
-const API_BASE_URL = import.meta.env.VITE_NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL = (import.meta as any).env?.VITE_NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 
 export interface ApiResponse<T = any> {
-  success: boolean;
+  success?: boolean;
   data?: T;
   message?: string;
   error?: string;
@@ -29,7 +29,7 @@ export class ApiError extends Error {
 
 export const apiClient = {
   get: async <T>(url: string): Promise<T> => {
-    const token = localStorage.getItem('token'); // Assuming token is stored in localStorage
+    const token = localStorage.getItem('token');
 
     const response = await fetch(`${API_BASE_URL}${url}`, {
       method: 'GET',
@@ -40,7 +40,8 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      throw new ApiError(response.status, `HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(response.status, errorData.message || `HTTP error! status: ${response.status}`);
     }
 
     return response.json();
@@ -59,7 +60,8 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      throw new ApiError(response.status, `HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(response.status, errorData.message || `HTTP error! status: ${response.status}`);
     }
 
     return response.json();
@@ -78,7 +80,8 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      throw new ApiError(response.status, `HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(response.status, errorData.message || `HTTP error! status: ${response.status}`);
     }
 
     return response.json();
@@ -96,7 +99,8 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      throw new ApiError(response.status, `HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new ApiError(response.status, errorData.message || `HTTP error! status: ${response.status}`);
     }
 
     return response.json();

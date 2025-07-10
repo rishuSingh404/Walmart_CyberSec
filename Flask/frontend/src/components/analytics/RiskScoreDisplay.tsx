@@ -10,15 +10,13 @@ import { apiClient } from '@/utils/api';
 import { OtpModal } from './OtpModal';
 
 interface RiskScoreData {
-  riskScore: number;
-  riskLevel: string;
-  timestamp: string;
-  sessionId: string;
-  factors: {
-    typing: string;
-    mouse: string;
-    focus: string;
-    scroll: string;
+  risk_score: number;
+  risk_label: string;
+  component_scores: {
+    ml_score: number;
+    ml_risk_label: string;
+    fingerprint_diff: number;
+    intent_score: number;
   };
 }
 
@@ -51,33 +49,23 @@ export const RiskScoreDisplay: React.FC<RiskScoreDisplayProps> = ({
     setError(null);
 
     try {
-      const { data, error: functionError } = await apiClient.post('/risk-score', {
-        body: {
-          ...behaviorData,
-          sessionId,
-          timestamp: Date.now(),
-          pageUrl: window.location.href,
-          userAgent: navigator.userAgent
-        }
+      const response = await apiClient.post<RiskScoreData>('/api/risk/assess', {
+        ...behaviorData,
+        sessionId,
+        timestamp: Date.now(),
+        pageUrl: window.location.href,
+        userAgent: navigator.userAgent
       });
 
-      if (functionError) {
-        throw new Error(functionError.message);
-      }
+      setRiskData(response);
+      toast({
+        title: "Risk Assessment Complete",
+        description: `Risk level: ${response.risk_label} (${response.risk_score}/100)`,
+      });
 
-      if (data.success) {
-        setRiskData(data);
-        toast({
-          title: "Risk Assessment Complete",
-          description: `Risk level: ${data.riskLevel} (${data.riskScore}/100)`,
-        });
-
-        // Show OTP modal if risk score is high (> 70)
-        if (data.riskScore > 70) {
-          setShowOtpModal(true);
-        }
-      } else {
-        throw new Error(data.message || 'Failed to calculate risk score');
+      // Show OTP modal if risk score is high (> 70)
+      if (response.risk_score > 70) {
+        setShowOtpModal(true);
       }
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to calculate risk score';
@@ -156,36 +144,36 @@ export const RiskScoreDisplay: React.FC<RiskScoreDisplayProps> = ({
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <div className="flex items-center gap-3">
-                {getRiskIcon(riskData.riskLevel)}
+                {getRiskIcon(riskData.risk_label)}
                 <div>
-                  <div className="font-semibold">Risk Score: {riskData.riskScore}/100</div>
+                  <div className="font-semibold">Risk Score: {riskData.risk_score}/100</div>
                   <div className="text-sm text-muted-foreground">
-                    Assessed at {new Date(riskData.timestamp).toLocaleTimeString()}
+                    Assessed at {new Date().toLocaleTimeString()}
                   </div>
                 </div>
               </div>
-              <Badge variant={getRiskColor(riskData.riskLevel) as any}>
-                {riskData.riskLevel.toUpperCase()} RISK
+              <Badge variant={getRiskColor(riskData.risk_label) as any}>
+                {riskData.risk_label.toUpperCase()} RISK
               </Badge>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
               <div className="text-sm">
-                <span className="font-medium">Typing:</span> {riskData.factors.typing}
+                <span className="font-medium">ML Score:</span> {riskData.component_scores.ml_score.toFixed(1)}
               </div>
               <div className="text-sm">
-                <span className="font-medium">Mouse:</span> {riskData.factors.mouse}
+                <span className="font-medium">Fingerprint:</span> {riskData.component_scores.fingerprint_diff.toFixed(1)}
               </div>
               <div className="text-sm">
-                <span className="font-medium">Focus:</span> {riskData.factors.focus}
+                <span className="font-medium">Intent:</span> {riskData.component_scores.intent_score.toFixed(1)}
               </div>
               <div className="text-sm">
-                <span className="font-medium">Scroll:</span> {riskData.factors.scroll}
+                <span className="font-medium">ML Label:</span> {riskData.component_scores.ml_risk_label}
               </div>
             </div>
 
             <div className="text-xs text-muted-foreground">
-              Session ID: {riskData.sessionId}
+              Session ID: {sessionId}
             </div>
           </div>
         )}
