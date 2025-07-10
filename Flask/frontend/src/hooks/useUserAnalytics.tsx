@@ -1,4 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { apiClient } from '@/utils/api';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 
 export interface TypingMetrics {
   wpm: number;
@@ -53,6 +56,7 @@ export interface UseUserAnalyticsOptions {
   trackFocus?: boolean;
   sendInterval?: number; // milliseconds
   onDataReady?: (data: UserAnalytics) => void;
+  autoSendToBackend?: boolean;
 }
 
 const useUserAnalytics = (options: UseUserAnalyticsOptions = {}) => {
@@ -62,8 +66,12 @@ const useUserAnalytics = (options: UseUserAnalyticsOptions = {}) => {
     trackMouse = true,
     trackFocus = true,
     sendInterval = 30000, // 30 seconds
-    onDataReady
+    onDataReady,
+    autoSendToBackend = true
   } = options;
+
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   // Session management
   const sessionId = useRef(crypto.randomUUID());
@@ -387,32 +395,56 @@ const useUserAnalytics = (options: UseUserAnalyticsOptions = {}) => {
     handleMouseEnter, handleFocus, handleBlur, handleVisibilityChange
   ]);
 
-  // Generate analytics data
-  const getAnalyticsData = useCallback((): UserAnalytics => {
+  // Function to get the current analytics data
+  const getAnalyticsData = useCallback(() => {
+    const now = Date.now();
+    const sessionDuration = (now - sessionStartTime.current) / 1000; // in seconds
+    
     return {
       sessionId: sessionId.current,
-      timestamp: Date.now(),
+      timestamp: now,
       typing: typingMetrics,
       scroll: scrollMetrics,
       mouse: mouseMetrics,
       focus: focusMetrics,
       pageUrl: window.location.href,
       userAgent: navigator.userAgent,
-      sessionDuration: Date.now() - sessionStartTime.current
+      sessionDuration
     };
   }, [typingMetrics, scrollMetrics, mouseMetrics, focusMetrics]);
 
-  // Send data periodically
+  // Send analytics data to backend
+  const sendAnalyticsToBackend = useCallback(async (analyticsData: UserAnalytics) => {
+    if (!autoSendToBackend) return;
+    
+    try {
+      const response = await apiClient.post('/api/analytics/store', {
+        ...analyticsData,
+        user_id: user?.id
+      });
+      
+      if (response.success) {
+        console.log('Analytics data sent to backend successfully');
+      }
+    } catch (error) {
+      console.error('Failed to send analytics data to backend:', error);
+    }
+  }, [autoSendToBackend, user]);
+
+  // Periodically collect and send analytics data
   useEffect(() => {
-    if (!onDataReady || sendInterval <= 0) return;
-
-    const interval = setInterval(() => {
-      const data = getAnalyticsData();
-      onDataReady(data);
+    const intervalId = setInterval(() => {
+      const currentAnalytics = getAnalyticsData();
+      
+      if (onDataReady) {
+        onDataReady(currentAnalytics);
+      }
+      
+      sendAnalyticsToBackend(currentAnalytics);
     }, sendInterval);
-
-    return () => clearInterval(interval);
-  }, [onDataReady, sendInterval, getAnalyticsData]);
+    
+    return () => clearInterval(intervalId);
+  }, [sendInterval, onDataReady, sendAnalyticsToBackend]);
 
   // Manual data retrieval
   const sendAnalytics = useCallback(() => {
@@ -429,17 +461,15 @@ const useUserAnalytics = (options: UseUserAnalyticsOptions = {}) => {
   }, [getAnalyticsData]);
 
   return {
-    analytics: {
-      typing: typingMetrics,
-      scroll: scrollMetrics,
-      mouse: mouseMetrics,
-      focus: focusMetrics
-    },
-    sendAnalytics,
-    getAnalyticsJSON,
-    sessionId: sessionId.current
+    typingMetrics,
+    scrollMetrics,
+    mouseMetrics,
+    focusMetrics,
+    sessionId: sessionId.current,
+    sessionDuration: (Date.now() - sessionStartTime.current) / 1000,
+    getAnalyticsData,
+    sendAnalyticsToBackend
   };
 };
 
-// Export the hook as default to fix Fast Refresh compatibility
-export { useUserAnalytics };
+export default useUserAnalytics;

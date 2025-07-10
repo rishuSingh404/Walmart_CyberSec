@@ -6,7 +6,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, AlertTriangle, CheckCircle, Loader2 } from 'lucide-react';
 
 import { apiClient } from '@/utils/api';
- import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
+import { useWebSocket } from "@/hooks/useWebSocket";
 import { OtpModal } from './OtpModal';
 
 interface RiskScoreData {
@@ -34,6 +36,10 @@ export const RiskScoreDisplay: React.FC<RiskScoreDisplayProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showOtpModal, setShowOtpModal] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  // Initialize WebSocket for real-time risk alerts
+  const ws = useWebSocket();
 
   const calculateRiskScore = async () => {
     if (!behaviorData) {
@@ -67,6 +73,10 @@ export const RiskScoreDisplay: React.FC<RiskScoreDisplayProps> = ({
       if (response.risk_score > 70) {
         setShowOtpModal(true);
       }
+      
+      // Send risk alert via WebSocket for real-time monitoring
+      // This part is removed as per the edit hint.
+      
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to calculate risk score';
       setError(errorMessage);
@@ -192,7 +202,7 @@ export const RiskScoreDisplay: React.FC<RiskScoreDisplayProps> = ({
       <OtpModal
         isOpen={showOtpModal}
         onClose={() => setShowOtpModal(false)}
-        riskScore={riskData?.riskScore || 0}
+        riskScore={riskData?.risk_score || 0}
         sessionId={sessionId}
       />
     </Card>

@@ -1,8 +1,6 @@
 import random
-try:
-    from .models import BehavioralData
-except ImportError:
-    from models import BehavioralData
+# Use absolute imports instead of relative imports
+from models import BehavioralData
 
 def analyze_user_behavior(user, new_fingerprint_data):
     """

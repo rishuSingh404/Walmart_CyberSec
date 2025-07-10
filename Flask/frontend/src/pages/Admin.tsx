@@ -6,11 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, Users, ShoppingCart, Eye, Heart, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Users, ShoppingCart, Eye, Heart, AlertTriangle, Activity } from 'lucide-react';
 
 import { apiClient } from '@/utils/api';
  import { useToast } from '@/hooks/use-toast';
 import { SessionActivityModal } from '@/components/analytics/SessionActivityModal';
+import { useWebSocket } from '@/hooks/useWebSocket';
 
 // Modify interfaces to handle optional metadata
 interface LoginAttempt {
@@ -66,6 +67,21 @@ interface ShopActivity {
   searches: number;
 }
 
+// New interface for real-time activity
+interface RealTimeActivity {
+  user_id: string;
+  activity_type: string;
+  timestamp: string;
+}
+
+// New interface for risk alerts
+interface RiskAlert {
+  user_id: string;
+  risk_level: string;
+  risk_score: number;
+  timestamp: string;
+}
+
 const AdminPage = () => {
   const [attempts, setAttempts] = useState<LoginAttempt[]>([]);
   const [analytics, setAnalytics] = useState<UserAnalytics[]>([]);
@@ -74,7 +90,75 @@ const AdminPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [showSessionModal, setShowSessionModal] = useState(false);
+  const [realTimeActivities, setRealTimeActivities] = useState<RealTimeActivity[]>([]);
+  const [riskAlerts, setRiskAlerts] = useState<RiskAlert[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  
   const { toast } = useToast();
+  
+  // Initialize WebSocket for real-time monitoring
+  const { 
+    isConnected, 
+    isAuthenticated, 
+    lastMessage, 
+    error: wsError,
+    requestAnalytics,
+    requestOtpAttempts,
+    requestLoginAttempts,
+    requestRiskData
+  } = useWebSocket();
+
+  // Handle real-time updates
+  useEffect(() => {
+    if (lastMessage) {
+      switch (lastMessage.type) {
+        case 'user_analytics':
+          // Update analytics data
+          if (lastMessage.data.total_users !== undefined) {
+            // This is admin analytics data
+            console.log('Analytics update received:', lastMessage.data);
+            // Don't show toast for every update to reduce spam
+          }
+          break;
+        case 'otp_attempts':
+          // Update OTP attempts data
+          console.log('OTP attempts update received:', lastMessage.data);
+          // Don't show toast for every update to reduce spam
+          break;
+        case 'login_attempts':
+          // Update login attempts data
+          console.log('Login attempts update received:', lastMessage.data);
+          // Don't show toast for every update to reduce spam
+          break;
+        case 'risk_data':
+          // Update risk data
+          console.log('Risk data update received:', lastMessage.data);
+          // Don't show toast for every update to reduce spam
+          break;
+      }
+    }
+  }, [lastMessage]);
+
+  // Request real-time data when connected
+  useEffect(() => {
+    if (isConnected && isAuthenticated) {
+      // Request initial data
+      requestAnalytics();
+      requestOtpAttempts();
+      requestLoginAttempts();
+      requestRiskData();
+      
+      // Set up periodic updates
+      const interval = setInterval(() => {
+        requestAnalytics();
+        requestOtpAttempts();
+        requestLoginAttempts();
+        requestRiskData();
+      }, 60000); // Update every 60 seconds to reduce spam
+      
+      return () => clearInterval(interval);
+    }
+  }, [isConnected, isAuthenticated, requestAnalytics, requestOtpAttempts, requestLoginAttempts, requestRiskData]);
 
   const fetchLoginAttempts = async () => {
     try {
@@ -92,6 +176,7 @@ const AdminPage = () => {
       const attemptsData = attemptsResult as any;
       const analyticsData = analyticsResult as any;
       
+      console.log('analyticsData from backend:', analyticsData);
       // The backend returns different structures for these endpoints
       // otp_attempts returns recent_attempts array
       // user_analytics returns analytics data
@@ -163,7 +248,7 @@ const AdminPage = () => {
       }
       
       // Also check user_analytics for shop_metrics
-      for (const record of analyticsData || []) {
+      for (const record of Array.isArray(analyticsData) ? analyticsData : []) {
         try {
           const rawMeta = record.metadata;
           
@@ -315,69 +400,51 @@ const AdminPage = () => {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">User Behavior Analytics</h1>
-            <p className="text-muted-foreground">Monitor shop activities and user behavior patterns</p>
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <div className="flex items-center gap-2">
+            <Badge variant={isConnected ? "default" : "destructive"}>
+              {isConnected ? "Connected" : "Disconnected"}
+            </Badge>
+            <Button 
+              size="sm" 
+              onClick={fetchLoginAttempts} 
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
           </div>
-          <Button onClick={fetchLoginAttempts} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh Data
-          </Button>
         </div>
 
-        {/* Key Metrics */}
-        <div className="grid gap-4 md:grid-cols-4">
+        {/* Status Cards */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Users className="h-4 w-4 text-blue-500" />
-                Active Sessions
-              </CardTitle>
+              <CardDescription>Online Users</CardDescription>
+              <CardTitle className="text-2xl">{onlineUsers.size}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.totalSessions}</div>
-              <p className="text-xs text-muted-foreground">Unique user sessions</p>
-            </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <ShoppingCart className="h-4 w-4 text-green-500" />
-                Shop Interactions
-              </CardTitle>
+              <CardDescription>Risk Alerts</CardDescription>
+              <CardTitle className="text-2xl">{riskAlerts.length}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.totalShopActivities}</div>
-              <p className="text-xs text-muted-foreground">Total shop actions</p>
-            </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Eye className="h-4 w-4 text-purple-500" />
-                Product Views
-              </CardTitle>
+              <CardDescription>Recent Activities</CardDescription>
+              <CardTitle className="text-2xl">{realTimeActivities.length}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">{stats.productViews}</div>
-              <p className="text-xs text-muted-foreground">Products viewed</p>
-            </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Heart className="h-4 w-4 text-orange-500" />
-                Avg Typing Speed
-              </CardTitle>
+              <CardDescription>Connection Status</CardDescription>
+              <CardTitle className="text-2xl">{isAuthenticated ? 'Authenticated' : 'Not Authenticated'}</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">{stats.avgTypingSpeed}</div>
-              <p className="text-xs text-muted-foreground">Words per minute</p>
-            </CardContent>
           </Card>
         </div>
 
@@ -388,15 +455,211 @@ const AdminPage = () => {
           </Alert>
         )}
 
-        {/* Main content using tabs for better organization */}
-        <Tabs defaultValue="shop" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="shop">Shop Analytics</TabsTrigger>
-            <TabsTrigger value="behavior">User Behavior</TabsTrigger>
+        {/* Main Tabs */}
+        <Tabs defaultValue="login_attempts" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="login_attempts">Login Attempts</TabsTrigger>
+            <TabsTrigger value="user_analytics">User Analytics</TabsTrigger>
+            <TabsTrigger value="shop_activity">Shop Activity</TabsTrigger>
+            <TabsTrigger value="real_time">Real-Time</TabsTrigger>
           </TabsList>
           
-          {/* Shop Analytics Tab */}
-          <TabsContent value="shop" className="space-y-6">
+          {/* Login Attempts Tab */}
+          <TabsContent value="login_attempts" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5 text-blue-600" />
+                      Login Attempts
+                    </CardTitle>
+                    <CardDescription>
+                      Recent user login attempts and their risk scores
+                    </CardDescription>
+                  </div>
+                  {!isLoading && attempts.length === 0 && (
+                    <Button size="sm" asChild>
+                      <a href="/login">Generate Data</a>
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                    Loading login attempts...
+                  </div>
+                ) : attempts.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="mb-4">No login attempts found.</p>
+                    <p className="text-sm">Visit the <a href="/login" className="text-primary underline font-medium">Login page</a> to generate data.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>User ID</TableHead>
+                          <TableHead>Session</TableHead>
+                          <TableHead>Risk Score</TableHead>
+                          <TableHead>OTP Code</TableHead>
+                          <TableHead>Valid</TableHead>
+                          <TableHead>IP</TableHead>
+                          <TableHead>Time</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {attempts.map((attempt) => (
+                          <TableRow key={attempt.id}>
+                            <TableCell className="font-mono text-xs">
+                              {String(attempt.id).substring(0, 8)}...
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {attempt.user_id || 'N/A'}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {String(attempt.session_id).substring(0, 8)}...
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={(attempt.risk_score || 0) > 50 ? "destructive" : "default"}>
+                                {(attempt.risk_score || 0).toFixed(1)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {attempt.otp_code}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={attempt.is_valid ? "default" : "destructive"}>
+                                {attempt.is_valid ? "Valid" : "Invalid"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {attempt.ip_address || 'N/A'}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {formatTimestamp(attempt.created_at)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* User Analytics Tab */}
+          <TabsContent value="user_analytics" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5 text-green-600" />
+                      User Behavior Analytics
+                    </CardTitle>
+                    <CardDescription>
+                      Detailed behavioral data from user sessions on the shop page
+                    </CardDescription>
+                  </div>
+                  {!isLoading && analytics.length === 0 && (
+                    <Button size="sm" asChild>
+                      <a href="/shop">Generate Data</a>
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin mr-2" />
+                    Loading behavior data...
+                  </div>
+                ) : (Array.isArray(analytics) ? analytics : []).length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="mb-4">No user behavior data found.</p>
+                    <p className="text-sm">Visit the <a href="/shop" className="text-primary underline font-medium">Shop page</a> and interact with it to generate analytics data.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Session</TableHead>
+                          <TableHead>Typing (WPM)</TableHead>
+                          <TableHead>Mouse Activity</TableHead>
+                          <TableHead>Scroll Depth</TableHead>
+                          <TableHead>Focus Time</TableHead>
+                          <TableHead>Page Interactions</TableHead>
+                          <TableHead>Session Duration</TableHead>
+                          <TableHead>Timestamp</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(Array.isArray(analytics) ? analytics : []).map((record) => (
+                          <TableRow key={record.id}>
+                            <TableCell className="font-mono text-xs">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-auto p-1 font-mono text-xs hover:bg-blue-50 hover:text-blue-600"
+                                onClick={() => handleSessionClick(record.session_id)}
+                                title="Click to view detailed session activity"
+                              >
+                                {String(record.session_id).substring(0, 8)}...
+                              </Button>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={record.typing_wpm > 0 ? "bg-blue-50" : ""}>
+                                {record.typing_wpm}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-xs">
+                                <div>Clicks: {record.mouse_clicks}</div>
+                                <div>Moves: {record.mouse_movements}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-purple-50">
+                                {record.scroll_depth}%
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="bg-orange-50">
+                                {Math.round(record.focus_time/1000)}s
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-xs">
+                                <div>Views: {record.page_views}</div>
+                                <div>Actions: {record.interactions_count}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {Math.round(record.session_duration/1000)}s
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {new Date(record.created_at).toLocaleTimeString()}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* Shop Activity Tab */}
+          <TabsContent value="shop_activity" className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex flex-row items-center justify-between">
@@ -457,10 +720,10 @@ const AdminPage = () => {
                         {shopActivities.map((activity, index) => (
                           <TableRow key={index}>
                             <TableCell className="font-mono text-xs">
-                              {activity.sessionId.substring(0, 8)}...
+                              {String(activity.sessionId).substring(0, 8)}...
                             </TableCell>
                             <TableCell className="font-mono text-xs">
-                              {activity.userId ? activity.userId.substring(0, 8) + '...' : 'N/A'}
+                              {activity.userId ? String(activity.userId).substring(0, 8) + '...' : 'N/A'}
                             </TableCell>
                             <TableCell className="font-mono text-xs">
                               {activity.email || 'N/A'}
@@ -503,112 +766,106 @@ const AdminPage = () => {
             </Card>
           </TabsContent>
           
-          {/* User Behavior Tab - Simplified and focused */}
-          <TabsContent value="behavior" className="space-y-6">
+          {/* New Real-Time Tab */}
+          <TabsContent value="real_time" className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Users className="h-5 w-5 text-green-600" />
-                  User Behavior Analytics
-                </CardTitle>
-                <CardDescription>
-                  Detailed behavioral data from user sessions on the shop page
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <RefreshCw className="h-6 w-6 animate-spin mr-2" />
-                    Loading behavior data...
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Risk Alerts</CardTitle>
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
                   </div>
-                ) : analytics.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p className="mb-4">No user behavior data found.</p>
-                    <p className="text-sm">Visit the <a href="/shop" className="text-primary underline font-medium">Shop page</a> and interact with it to generate analytics data.</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
+                  <CardDescription>Real-time risk assessment alerts</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {riskAlerts.length > 0 ? (
+                    <div className="max-h-[400px] overflow-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Session</TableHead>
-                          <TableHead>Typing (WPM)</TableHead>
-                          <TableHead>Mouse Activity</TableHead>
-                          <TableHead>Scroll Depth</TableHead>
-                          <TableHead>Focus Time</TableHead>
-                          <TableHead>Page Interactions</TableHead>
-                          <TableHead>Session Duration</TableHead>
-                          <TableHead>Timestamp</TableHead>
+                            <TableHead>User</TableHead>
+                            <TableHead>Risk Level</TableHead>
+                            <TableHead>Score</TableHead>
+                            <TableHead>Time</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {analytics.map((record) => (
-                          <TableRow key={record.id}>
-                            <TableCell className="font-mono text-xs">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-auto p-1 font-mono text-xs hover:bg-blue-50 hover:text-blue-600"
-                                onClick={() => handleSessionClick(record.session_id)}
-                                title="Click to view detailed session activity"
-                              >
-                                {record.session_id.substring(0, 8)}...
-                              </Button>
-                            </TableCell>
+                          {riskAlerts.map((alert, index) => (
+                            <TableRow key={`alert-${index}`}>
+                              <TableCell>{alert.user_id}</TableCell>
                             <TableCell>
-                              <Badge variant="outline" className={record.typing_wpm > 0 ? "bg-blue-50" : ""}>
-                                {record.typing_wpm}
+                                <Badge variant={
+                                  alert.risk_level === 'high' ? 'destructive' : 
+                                  alert.risk_level === 'medium' ? 'secondary' : 'default'
+                                }>
+                                  {alert.risk_level.toUpperCase()}
                               </Badge>
                             </TableCell>
-                            <TableCell>
-                              <div className="text-xs">
-                                <div>Clicks: {record.mouse_clicks}</div>
-                                <div>Moves: {record.mouse_movements}</div>
+                              <TableCell>{(alert.risk_score || 0).toFixed(1)}</TableCell>
+                              <TableCell>{new Date(alert.timestamp).toLocaleTimeString()}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="bg-purple-50">
-                                {record.scroll_depth}%
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="bg-orange-50">
-                                {Math.round(record.focus_time/1000)}s
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-xs">
-                                <div>Views: {record.page_views}</div>
-                                <div>Actions: {record.interactions_count}</div>
+                  ) : (
+                    <Alert>
+                      <AlertDescription>No risk alerts received yet.</AlertDescription>
+                    </Alert>
+                  )}
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>User Activities</CardTitle>
+                    <Activity className="h-5 w-5 text-blue-600" />
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="outline">
-                                {Math.round(record.session_duration/1000)}s
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="font-mono text-xs">
-                              {new Date(record.created_at).toLocaleTimeString()}
-                            </TableCell>
+                  <CardDescription>Real-time user activity stream</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {realTimeActivities.length > 0 ? (
+                    <div className="max-h-[400px] overflow-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>User</TableHead>
+                            <TableHead>Activity</TableHead>
+                            <TableHead>Time</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {realTimeActivities.map((activity, index) => (
+                            <TableRow key={`activity-${index}`}>
+                              <TableCell>{activity.user_id}</TableCell>
+                              <TableCell>{activity.activity_type}</TableCell>
+                              <TableCell>{new Date(activity.timestamp).toLocaleTimeString()}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </div>
+                  ) : (
+                    <Alert>
+                      <AlertDescription>No user activities received yet.</AlertDescription>
+                    </Alert>
                 )}
               </CardContent>
             </Card>
+            </div>
           </TabsContent>
-          
         </Tabs>
       </div>
       
       {/* Session Activity Modal */}
+      {showSessionModal && selectedSessionId && (
       <SessionActivityModal
-        isOpen={showSessionModal}
+          isOpen={showSessionModal}
+          sessionId={selectedSessionId}
         onClose={handleCloseSessionModal}
-        sessionId={selectedSessionId || ''}
       />
+      )}
     </Layout>
   );
 };
