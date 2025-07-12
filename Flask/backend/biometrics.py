@@ -1,6 +1,6 @@
 import random
-# Use absolute imports instead of relative imports
-from models import BehavioralData
+# Use relative imports for local modules
+from .models import BehavioralData
 
 def analyze_user_behavior(user, new_fingerprint_data):
     """

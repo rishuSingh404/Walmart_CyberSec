@@ -1,6 +1,10 @@
 import joblib
 import os
 import pandas as pd
+import warnings
+
+# Suppress scikit-learn version warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
 
 # Get the absolute path to the model directory
 # This assumes the script is run from the root of the project where 'backend' and 'model' are siblings
