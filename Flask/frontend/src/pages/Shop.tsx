@@ -707,7 +707,7 @@ const ShopPage = () => {
                       <div className="mt-1">
                         <Button 
                           onClick={() => addToCart(product.id)}
-                          className="w-full bg-[#0071DC] hover:bg-blue-700 text-white text-xs h-8"
+                          className="w-full bg-blue-500 hover:bg-blue-700 text-white text-xs h-8"
                         >
                           Add to cart
                         </Button>

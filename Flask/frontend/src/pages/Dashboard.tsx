@@ -1,4 +1,3 @@
-
 import { Layout } from '@/components/layout/Layout';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -6,7 +5,28 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { BarChart3, Settings, User, TrendingUp } from 'lucide-react';
 
-const Dashboard = () => {
+const hardcodedSessions = [
+  {
+    date: '2025-07-08 18:04:09',
+    productsViewed: 14,
+    cartActions: 4,
+    wishlistActions: 0,
+    categoryChanges: 0,
+    searches: 0,
+    lastVisited: '2025-07-08 18:04:09',
+  },
+  {
+    date: '2025-07-08 16:22:41',
+    productsViewed: 8,
+    cartActions: 2,
+    wishlistActions: 1,
+    categoryChanges: 3,
+    searches: 2,
+    lastVisited: '2025-07-08 16:22:41',
+  },
+];
+
+const UserActivity = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -18,12 +38,18 @@ const Dashboard = () => {
     <Layout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {user?.name || user?.email}!</p>
+          <h1 className="text-3xl font-bold">User Activity</h1>
+          <p className="text-muted-foreground">
+            Welcome back, {user?.name || user?.email}!
+          </p>
         </div>
-        
+
+        {/* Dashboard Cards */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleNavigate('/profile')}>
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => handleNavigate('/profile')}
+          >
             <CardHeader>
               <div className="flex items-center space-x-2">
                 <User className="h-5 w-5 text-blue-600" />
@@ -40,8 +66,11 @@ const Dashboard = () => {
               </Button>
             </CardContent>
           </Card>
-          
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleNavigate('/admin')}>
+
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => handleNavigate('/admin')}
+          >
             <CardHeader>
               <div className="flex items-center space-x-2">
                 <BarChart3 className="h-5 w-5 text-green-600" />
@@ -58,8 +87,11 @@ const Dashboard = () => {
               </Button>
             </CardContent>
           </Card>
-          
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => handleNavigate('/settings')}>
+
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => handleNavigate('/settings')}
+          >
             <CardHeader>
               <div className="flex items-center space-x-2">
                 <Settings className="h-5 w-5 text-purple-600" />
@@ -92,7 +124,7 @@ const Dashboard = () => {
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Avg. Session Time</CardDescription>
@@ -105,7 +137,7 @@ const Dashboard = () => {
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Tasks Completed</CardDescription>
@@ -118,7 +150,7 @@ const Dashboard = () => {
               </p>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardHeader className="pb-2">
               <CardDescription>Success Rate</CardDescription>
@@ -132,9 +164,42 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* User Activity Table */}
+        <div>
+          <h2 className="text-xl font-semibold mt-8 mb-4">Recent Activity</h2>
+          <div className="overflow-x-auto rounded-lg border">
+            <table className="min-w-full bg-white text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-gray-700">
+                  <th className="px-4 py-2 text-left">Session Date</th>
+                  <th className="px-4 py-2 text-left">Products Viewed</th>
+                  <th className="px-4 py-2 text-left">Cart Actions</th>
+                  <th className="px-4 py-2 text-left">Wishlist Actions</th>
+                  <th className="px-4 py-2 text-left">Category Changes</th>
+                  <th className="px-4 py-2 text-left">Searches</th>
+                  <th className="px-4 py-2 text-left">Last Visited</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hardcodedSessions.map((session, idx) => (
+                  <tr key={idx} className="border-t">
+                    <td className="px-4 py-2">{session.date}</td>
+                    <td className="px-4 py-2">{session.productsViewed}</td>
+                    <td className="px-4 py-2">{session.cartActions}</td>
+                    <td className="px-4 py-2">{session.wishlistActions}</td>
+                    <td className="px-4 py-2">{session.categoryChanges}</td>
+                    <td className="px-4 py-2">{session.searches}</td>
+                    <td className="px-4 py-2">{session.lastVisited}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </Layout>
   );
 };
 
-export default Dashboard;
+export default UserActivity;
